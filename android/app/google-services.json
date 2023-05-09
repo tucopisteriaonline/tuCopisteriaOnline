@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "361319660519",
+    "project_id": "tucopisteriaonline-cec2e",
+    "storage_bucket": "tucopisteriaonline-cec2e.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:361319660519:android:a282c4c7f84d97a1641b42",
+        "android_client_info": {
+          "package_name": "com.tucopisteriaonline"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "361319660519-19me5pi52t90s9dlgkidc5h9hi7qole6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tucopisteriaonline",
+            "certificate_hash": "a2a89c187a52fff4c52211016e0befcbd7027970"
+          }
+        },
+        {
+          "client_id": "361319660519-1tijesp8meeo6ciugoplrf6ejval59ea.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBBT7QY-GaSxxNgNKBZawjZp8PL98RmCA4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "361319660519-1tijesp8meeo6ciugoplrf6ejval59ea.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
