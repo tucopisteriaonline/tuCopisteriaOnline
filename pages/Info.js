@@ -54,9 +54,10 @@ export default Info = () => {
 const styles = StyleSheet.create({
 
     container: {
-        paddingHorizontal: 10,
+        padding: 15,
         flexGrow: 1,
         paddingBottom: 300,
+        backgroundColor:'white',
 
     },
     titulo: {

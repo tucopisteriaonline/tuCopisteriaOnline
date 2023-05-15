@@ -14,7 +14,10 @@ import { ButtonGroup } from "../components/ButtonGroup";
 import ModalDireccionesEnvio from "../components/ModalDireccionesEnvio";
 import { API_URL } from "../config";
 import ModalCrearDireccionDeEnvio from "../components/ModalCrearDireccionDeEnvio";
-import { color } from "react-native-reanimated";
+import { useCarritoState } from "../hooks/useCarritoState";
+import { useContext } from "react";
+import { CarritoContext } from "../App";
+import ModalVerificarTel from "../components/ModalVerificarTel";
 
 export default ResumenPedido = ({ route, navigation }) => {
     const [carrito, setCarrito] = useState([]);
@@ -23,8 +26,12 @@ export default ResumenPedido = ({ route, navigation }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [direccion, setDireccion] = useState('');
 
+    const [buttonsPago, setButtonsPago] = useState(["TARJETA", "BIZUM"]);
+    const [carritoState, setCarritoState] = useContext(CarritoContext);
     const [modalViewDireccion, setModalViewDireccion] = useState(false);
-    const [metodoPago, setMetodoPago] = useState('tarjeta');
+    const [metodoPago, setMetodoPago] = useState('TARJETA');
+    const [viewModalVerificar, setViewModalVerificar] = useState(false)
+    const [verificado, setVerificado] = useState(false)
 
     const [okeyDireccion, setOkeyDireccion] = useState(false);
     const [okeyDatosFactura, setOkeyDatosFactura] = useState(true);
@@ -36,47 +43,87 @@ export default ResumenPedido = ({ route, navigation }) => {
     const { user } = useAuthContext();
     const local = route.params.local;
     const tipoPedido = route.params.pedido;
-    const uidEstadoPedido = "OSTATE5B6F6B756EC682.47106884";
-    console.log("LOCAL" + JSON.stringify(local))
 
-    const crearPedido = async () => {
-        let errorPedido = false;
-        if (!user) {
-            console.log("NOT LOGING")
-            return Alert.alert(
-                "Iniciar Sesión",
-                "Para poder seguir y realizar el pago deberá inciar sesión.",
-                [
-                    // The "Yes" button
-                    {
-                        text: "Iniciar Sesión",
-                        onPress: () => {
-                            navigation.navigate("Login")
-                        },
-                    },
-                    {
-                        text: "Cerrar",
-                    },
-                ]
-            );
+    const { suma, setSuma } = useCarritoState();
+
+
+
+    //console.log("LOCAL" + JSON.stringify(local))
+    const getEstadoPedido = () => {
+        if (!metodoPago === "PAGO EN TIENDA") {
+            return "OSTATE5B6F6B756EC682.47106884";
         } else {
-            setIsLoading(true)
-            const crearPedidoTabla = async () => {
+            return "OSTATE5B6F6BAFC72D61.52335275";
+        }
+    }
 
-                const response = await fetch(`${API_URL}/order`, {
+    const iniciarPago = async () => {
+        setIsLoading(true)
+        const crearPedidoTabla = async () => {
+
+            const uidEstadoPedido = getEstadoPedido();
+
+            const response = await fetch(`${API_URL}/order`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user.token}`
+                },
+
+                body: JSON.stringify({
+                    "uidLocalEntrega": local.uid,
+                    uidEstadoPedido,
+                    "metodoPago": metodoPago === "PAGO EN TIENDA" ? "EFECTIVO" : metodoPago,
+                    "importe": total,
+                    "enabled": metodoPago === "PAGO EN TIENDA" ? 1 : 0
+                })
+            })
+            const json = await response.json()
+            if (!response.ok) {
+                console.log(json.error)
+                errorPedido = true
+            }
+            if (response.ok) {
+                errorPedido = false
+                //console.log(json.order_uid)
+                const finalUid = json.order_uid;
+                return finalUid
+            }
+
+        }
+        const asignarArticulos = async (order_uid) => {
+
+            const article_ids = carrito.map(article => article.id);
+            console.log("articulos ids: " + article_ids)
+            const response = await fetch(`${API_URL}/order/setArticle`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user.token}`
+                },
+                body: JSON.stringify({ article_ids, order_uid })
+            })
+            const json = await response.json()
+            if (!response.ok) {
+                console.log(json.error)
+                errorPedido = true
+            }
+            if (response.ok) {
+                console.log("okey")
+                errorPedido = false
+            }
+        }
+        if (tipoPedido === "Envio") {
+            const guardarDatosEnvio = async (order_uid) => {
+
+                const response = await fetch(`${API_URL}/order/setDatosEnvio`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${user.token}`
                     },
 
-                    body: JSON.stringify({
-                        "uidLocalEntrega": local.uid,
-                        uidEstadoPedido,
-                        metodoPago,
-                        "importe": total,
-                        "enabled": 0
-                    })
+                    body: JSON.stringify({ order_uid, ...direccion })
                 })
                 const json = await response.json()
                 if (!response.ok) {
@@ -84,35 +131,44 @@ export default ResumenPedido = ({ route, navigation }) => {
                     errorPedido = true
                 }
                 if (response.ok) {
-                    errorPedido = false
-                    //console.log(json.order_uid)
-                    const finalUid = json.order_uid;
-                    return finalUid
-                }
-
-            }
-            const asignarArticulos = async (order_uid) => {
-
-                const article_ids = carrito.map(article => article.id);
-                console.log("arriculos ids: " + article_ids)
-                const response = await fetch(`${API_URL}/order/setArticle`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${user.token}`
-                    },
-                    body: JSON.stringify({ article_ids, order_uid })
-                })
-                const json = await response.json()
-                if (!response.ok) {
-                    console.log(json.error)
-                    errorPedido = true
-                }
-                if (response.ok) {
-                    console.log("okey")
+                    console.log(json)
                     errorPedido = false
                 }
             }
+            guardarDatosEnvio();
+        }
+
+        const crearFactura = async (order_uid) => {
+
+            const response = await fetch(`${API_URL}/order/factura`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user.token}`
+                },
+
+                body: JSON.stringify({ order_uid })
+            })
+            const json = await response.json()
+            if (!response.ok) {
+                console.log("FACTURA  " + JSON.stringify(json.error))
+                errorPedido = true
+            }
+            if (response.ok) {
+                console.log("FACTURA" + JSON.stringify(json))
+                errorPedido = false
+            }
+        }
+
+        //crear pedido tabla
+        const order_uid = await crearPedidoTabla();
+
+        //asignar articulos a pedido,(order_id,[article_Id,article_Id])
+        if (errorPedido !== true) {
+            await asignarArticulos(order_uid);
+        }
+        if (errorPedido !== true) {
+            //gurdar datos de envio si en a domicio
             if (tipoPedido === "Envio") {
                 const guardarDatosEnvio = async (order_uid) => {
 
@@ -135,94 +191,129 @@ export default ResumenPedido = ({ route, navigation }) => {
                         errorPedido = false
                     }
                 }
-                guardarDatosEnvio();
+                await guardarDatosEnvio(order_uid);
             }
+        }
+        if (errorPedido !== true) {
+            //crear order bill FACTURA
+            await crearFactura(order_uid);
+            setIsLoading(false)
 
-            const crearFactura = async (order_uid) => {
 
-                const response = await fetch(`${API_URL}/order/factura`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${user.token}`
+        }
+        if (errorPedido === true) {
+            console.log("SOME ERRRO HAPPEN")
+            setIsLoading(false)
+            return Alert.alert(
+                "Error",
+                "Algo ha ido mal",
+                [
+                    {
+                        text: "Cerrar",
                     },
+                ]
+            );
+        } else {
+            setIsLoading(false)
+            if (metodoPago !== "PAGO EN TIENDA") {
+                navigation.navigate("PaginaDePago", { "order_uid": order_uid, "amount": total, "metodoDePago": metodoPago })
+            } else {
+                await AsyncStorage.removeItem('@carrito');
+                navigation.setOptions({
+                    tabBarBadge: (suma - 1),
+                });
+                setCarritoState()
 
-                    body: JSON.stringify({ order_uid })
-                })
-                const json = await response.json()
-                if (!response.ok) {
-                    console.log("FACTURA  " + JSON.stringify(json.error))
-                    errorPedido = true
-                }
-                if (response.ok) {
-                    console.log("FACTURA" + JSON.stringify(json))
-                    errorPedido = false
-                }
+                navigation.dispatch(
+                    CommonActions.reset({
+                        index: 1,
+                        routes: [
+                            { name: 'Home' },
+                        ],
+                    }),
+                    navigation.navigate('MisPedidos')
+                );
+
             }
 
-            //crear pedido tabla
-            const order_uid = await crearPedidoTabla();
+        }
+    }
 
-            //asignar articulos a pedido,(order_id,[article_Id,article_Id])
-            if (errorPedido !== true) {
-                await asignarArticulos(order_uid);
-            }
-            if (errorPedido !== true) {
-                //gurdar datos de envio si en a domicio
-                if (tipoPedido === "Envio") {
-                    const guardarDatosEnvio = async (order_uid) => {
+    const crearPedido = async () => {
+        let errorPedido = false;
+        if (!user) {
+            console.log("NOT LOGING")
+            return Alert.alert(
+                "Iniciar Sesión",
+                "Para poder seguir y realizar el pago deberá inciar sesión.",
+                [
+                    // The "Yes" button
+                    {
+                        text: "Iniciar Sesión",
+                        onPress: () => {
+                            navigation.navigate("Login")
+                        },
+                    },
+                    {
+                        text: "Cerrar",
+                    },
+                ]
+            );
+        } else {
+            if (metodoPago === "PAGO EN TIENDA") {
+                console.log("check sms")
 
-                        const response = await fetch(`${API_URL}/order/setDatosEnvio`, {
+                //CHECK QUE SEA UN PEDIDO DE MENOS DE 30
+                if (total > 30) {
+                    return Alert.alert(
+                        "Maximo de 30",
+                        "Los pagos en tienda no pueden superar los 30 euros",
+                        [
+                            {
+                                text: "Cerrar",
+                            },
+                        ]
+                    );
+                } else {
+                    if (verificado) {
+
+                        iniciarPago();
+                    } else {
+                        //POST USUARIO YA ESTA VERIFICADO ?? TIENE PEDIDOS
+                        const url = `${API_URL}/order/checkPedidoEnvioRealizado`
+                        const response = await fetch(url, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                                 'Authorization': `Bearer ${user.token}`
                             },
-
-                            body: JSON.stringify({ order_uid, ...direccion })
+                            body: JSON.stringify({ "user_uid": user.user.uid })
                         })
-                        const json = await response.json()
+                        const json = await response.json();
                         if (!response.ok) {
-                            console.log(json.error)
-                            errorPedido = true
+
                         }
                         if (response.ok) {
-                            console.log(json)
-                            errorPedido = false
+                            if (json.mssg === "verificado") {
+                                iniciarPago();
+                            }
+                            else {
+                                setViewModalVerificar(true)
+                            }
                         }
                     }
-                    await guardarDatosEnvio(order_uid);
+
+
                 }
-            }
-            if (errorPedido !== true) {
-                //crear order bill FACTURA
-                await crearFactura(order_uid);
-                setIsLoading(false)
-
-
-            }
-
-
-            if (errorPedido === true) {
-                console.log("SOME ERRRO HAPPEN")
-                setIsLoading(false)
-                return Alert.alert(
-                    "Error",
-                    "Algo ha ido mal",
-                    [
-                        {
-                            text: "Cerrar",
-                        },
-                    ]
-                );
             } else {
-                setIsLoading(false)
-                navigation.navigate("PaginaDePago", { "order_uid": order_uid, "amount": total, "metodoDePago": metodoPago })
+                iniciarPago();
             }
+
         }
 
-    }
 
+
+    }
     const calTotal = (e) => {
         var totalPrice = 0;
         e.forEach(function (item) {
@@ -241,6 +332,11 @@ export default ResumenPedido = ({ route, navigation }) => {
 
 
     useEffect(() => {
+        const tipoPedido = route.params.pedido;
+        if (tipoPedido !== "Envio") {
+            setButtonsPago(["TARJETA", "BIZUM", "PAGO EN TIENDA"])
+        }
+
         const getData2 = async () => {
             try {
                 const jsonValue = await AsyncStorage.getItem('@carrito');
@@ -277,12 +373,10 @@ export default ResumenPedido = ({ route, navigation }) => {
             getData2();
             checkContinuar();
 
-          });
-      
-          // Return a cleanup function to remove the listener when the component unmounts
+        });
+
+        // Return a cleanup function to remove the listener when the component unmounts
         return unsubscribe;
-
-
 
     }, [navigation]);
 
@@ -306,8 +400,17 @@ export default ResumenPedido = ({ route, navigation }) => {
             "Introduce toda la información necesaria para poder seguir",
             [{ text: "Cerrar" }]
         );
+    }
+
+    const checkTelefonoVerificado = () => {
+        console.log(verificado)
+        setViewModalVerificar(false)
+        if (verificado) {
+            iniciarPago();
+        }
 
     }
+
 
     if (isLoading) {
         return (
@@ -315,11 +418,14 @@ export default ResumenPedido = ({ route, navigation }) => {
                 <ActivityIndicator size="large" color="#464644" />
             </SafeAreaView>
         )
-
     } else {
         return (
             <SafeAreaView style={styles.mainCtn}>
-
+                <ModalVerificarTel
+                    visible={viewModalVerificar}
+                    onClose={() => checkTelefonoVerificado()}
+                    setVerificado={setVerificado}
+                />
                 <ScrollView>
 
                     <View style={styles.topCtn}>
@@ -338,7 +444,7 @@ export default ResumenPedido = ({ route, navigation }) => {
                         <View style={styles.containerOpcion}>
                             <ButtonGroup
                                 default={0}
-                                buttons={["TARJETA", "BIZUM"]}
+                                buttons={buttonsPago}
                                 onChange={value => setMetodoPago(value)}
                             />
                         </View>
@@ -388,7 +494,7 @@ export default ResumenPedido = ({ route, navigation }) => {
                                 }
                                 <Text style={styles.h2Titulo}>Datos de Facturación</Text>
 
-                                <DatosDeFacturacion  setOkeyDatosFactura={setOkeyDatosFactura} user={user} />
+                                <DatosDeFacturacion setOkeyDatosFactura={setOkeyDatosFactura} user={user} />
 
                             </>
                             :
