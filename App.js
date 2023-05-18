@@ -6,7 +6,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import StackNavigation from './Navigation/StackNavigation';
 import { AuthContextProvider } from './context/authContext'
 import PaginaCerrado from './pages/PaginaCerrado';
-import { set } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const CarritoContext = React.createContext();;
